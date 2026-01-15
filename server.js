@@ -14,7 +14,6 @@ let config;
 async function initializeServer() {
   // Initialize OpenID Client
   let server = new URL(`https://cognito-idp.${process.env.AWS_REGION}.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}`)
-  console.log(server)
   let clientId = process.env.COGNITO_CLIENT_ID;
   let clientSecret = process.env.COGNITO_CLIENT_SECRET;
   config = await client.discovery(
@@ -24,8 +23,6 @@ async function initializeServer() {
   );
 
   jwtSigningKey = await getCognitoJWTPublicKey(server.href + "/.well-known/jwks.json");
-
-  console.log(jwtSigningKey)
 }
 
 initializeServer().catch(console.error);
@@ -63,7 +60,6 @@ app.get('/login',
       state
     };
     const cognitoLoginURL = client.buildAuthorizationUrl(config, parameters).href;
-    console.log(JSON.stringify({cognitoLoginURL}))
     res.cookie('state', state, { httpOnly: true, signed: true });
     res.cookie('code_verifier', code_verifyer, { httpOnly: true, signed: true });
     res.send(JSON.stringify({ cognitoLoginURL }));
@@ -74,7 +70,7 @@ app.get('/token',
   async (req, res) => {
     try {
       const { state, code_verifier } = req.signedCookies;
-      console.log(state, code_verifier, config, getCurrentUrl(req));
+      // console.log(state, code_verifier, config, getCurrentUrl(req));
       let tokens = await client.authorizationCodeGrant(
         config,
         getCurrentUrl(req),
