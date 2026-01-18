@@ -1,10 +1,9 @@
 require('dotenv').config();
-
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const client = require("openid-client")
 const cors = require('cors');
-
+const { psgres } = require('./postgres-connect');
 const authMiddleware = require('./authMiddleware');
 const { getCurrentUrl, getCognitoJWTPublicKey } = require('./utils');
 
@@ -23,6 +22,7 @@ async function initializeServer() {
   );
 
   jwtSigningKey = await getCognitoJWTPublicKey(server.href + "/.well-known/jwks.json");
+  // console.log(jwtSigningKey)
 }
 
 initializeServer().catch(console.error);
@@ -50,6 +50,7 @@ app.use(authMiddleware);
 
 app.get('/login',
   async (req, res) => {
+    console.log('Login requested...');
     const code_verifyer = client.randomPKCECodeVerifier();
     const code_challenge = await client.calculatePKCECodeChallenge(code_verifyer);
     const state = client.randomState();
@@ -60,6 +61,7 @@ app.get('/login',
       state
     };
     const cognitoLoginURL = client.buildAuthorizationUrl(config, parameters).href;
+    // console.log(cognitoLoginURL)
     res.cookie('state', state, { httpOnly: true, signed: true });
     res.cookie('code_verifier', code_verifyer, { httpOnly: true, signed: true });
     res.send(JSON.stringify({ cognitoLoginURL }));
@@ -69,6 +71,7 @@ app.get('/login',
 app.get('/token',
   async (req, res) => {
     try {
+      console.log('Token requested...');
       const { state, code_verifier } = req.signedCookies;
       // console.log(state, code_verifier, config, getCurrentUrl(req));
       let tokens = await client.authorizationCodeGrant(
@@ -79,6 +82,8 @@ app.get('/token',
           expectedState: state,
         },
       );
+
+      // console.log(tokens)
 
       res.cookie('ACCESS_TOKEN', tokens.access_token, { httpOnly: true, signed: true });
       res.cookie('REFRESH_TOKEN', tokens.refresh_token, { httpOnly: true, signed: true });
@@ -99,6 +104,19 @@ app.get('/todos',
     const adminTodos = ["adminTask1", "admiTask2", "adminTask3"];
     const isAdmin = JSON.parse(Buffer.from(req?.signedCookies?.ACCESS_TOKEN?.split('.')[1], 'base64')?.toString('utf8'))['cognito:groups']?.includes('Admin');
     res.send(isAdmin ? adminTodos : todos)
+  }
+)
+
+app.get('/users',
+  async (req, res) => {
+    
+    try {
+      const { rows } = await psgres('SELECT * FROM webUser');
+      res.json(rows);  
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Server Error');
+    }
   }
 )
 
