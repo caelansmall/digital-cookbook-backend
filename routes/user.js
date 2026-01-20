@@ -1,3 +1,7 @@
+const { 
+  readUserByUsername,
+  createUser,
+} = require('../api/users');
 require('dotenv').config();
 const express = require('express');
 const cookieParser = require('cookie-parser');
@@ -6,6 +10,7 @@ const authMiddleware = require('../authMiddleware');
 const { psgres } = require('../postgres-connect');
 const cors = require('cors');
 
+
 const app = express();
 const port = process.env.PORT || 8080;
 
@@ -13,11 +18,11 @@ const allowedOrigins = ["http://localhost:5173",];
 
 // CORS middleware
 const corsOptions = {
-    origin: allowedOrigins,
-    methods: ["GET", "POST", "PUT"],
-    allowedHeaders: ["Content-Type",],
-    credentials: true,
-    maxAge: 10
+  origin: allowedOrigins,
+  methods: ["GET", "POST", "PUT"],
+  allowedHeaders: ["Content-Type",],
+  credentials: true,
+  maxAge: 10
 };
 
 router.use(cors(corsOptions));
@@ -26,13 +31,23 @@ router.use(authMiddleware);
 
 router.route('/username/:username') // /api/user/username/:username
 .get(async (req,res) => {
-    console.log('\n\nIN USERNAME QUERY\n\n')
+  try {
     const username = req.params.username;
 
-    console.log(username);
+    let data = await readUserByUsername(username);
 
-    const { rows } = await psgres('SELECT * FROM webuser');
-    console.log(rows);
-})
+    if(data.length == 0) {
+      data = await createUser({
+        username: username,
+      });
+    }
+
+    return res.status(200).send(data);
+  } catch (error) {
+    console.error(`[API] Error:`,error);
+    throw error;
+  }
+
+});
 
 module.exports = router;
