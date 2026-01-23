@@ -48,6 +48,8 @@ app.use(cors(corsOptions));
 app.use(cookieParser(process.env.COOKIE_SECRET));
 app.use(authMiddleware);
 
+app.use("/api", require('./routes/index'))
+
 app.get('/login',
   async (req, res) => {
     console.log('Login requested...');
@@ -83,7 +85,9 @@ app.get('/token',
         },
       );
 
+      // console.log('----------------------')
       // console.log(tokens)
+      // console.log('^^^^^^^^^^^^^^^^^^^^^^^^^')
 
       res.cookie('ACCESS_TOKEN', tokens.access_token, { httpOnly: true, signed: true });
       res.cookie('REFRESH_TOKEN', tokens.refresh_token, { httpOnly: true, signed: true });
@@ -93,13 +97,15 @@ app.get('/token',
       res.send(tokens);
     } catch (error) {
       console.error(error);
-      res.status(500).send(err);
+      res.status(500).send(error);
     }
   }
 )
 
 app.get('/todos',
   async (req, res) => {
+    // console.log('>>',JSON.parse(Buffer.from(req?.signedCookies?.ACCESS_TOKEN?.split('.')[1], 'base64')?.toString('utf8')));
+    
     const todos = ["task1", "task2", "task3"];
     const adminTodos = ["adminTask1", "admiTask2", "adminTask3"];
     const isAdmin = JSON.parse(Buffer.from(req?.signedCookies?.ACCESS_TOKEN?.split('.')[1], 'base64')?.toString('utf8'))['cognito:groups']?.includes('Admin');
@@ -111,6 +117,7 @@ app.get('/users',
   async (req, res) => {
     
     try {
+      console.log('IN QUERY')
       const { rows } = await psgres('SELECT * FROM webUser');
       res.json(rows);  
     } catch (err) {
