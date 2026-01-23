@@ -78,8 +78,6 @@ const createUser = async (
 
     const { rows } = await psgres(query);
 
-    console.log(rows);
-
     return rows;
   } catch (error) {
     console.error(`[DB] Error:`,error);

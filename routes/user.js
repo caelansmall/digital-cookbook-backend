@@ -1,18 +1,18 @@
 const { 
   readUserByUsername,
   createUser,
-} = require('../api/users');
+} = require('../api');
 require('dotenv').config();
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const router = express.Router();
 const authMiddleware = require('../authMiddleware');
-const { psgres } = require('../postgres-connect');
+// const { psgres } = require('../postgres-connect');
 const cors = require('cors');
 
 
-const app = express();
-const port = process.env.PORT || 8080;
+// const app = express();
+// const port = process.env.PORT || 8080;
 
 const allowedOrigins = ["http://localhost:5173",];
 
@@ -42,10 +42,10 @@ router.route('/username/:username') // /api/user/username/:username
       });
     }
 
-    return res.status(200).send(data);
+    return res.status(200).json(data);
   } catch (error) {
     console.error(`[API] Error:`,error);
-    throw error;
+    return res.status(400).json(error);
   }
 
 });

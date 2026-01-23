@@ -85,10 +85,6 @@ app.get('/token',
         },
       );
 
-      // console.log('----------------------')
-      // console.log(tokens)
-      // console.log('^^^^^^^^^^^^^^^^^^^^^^^^^')
-
       res.cookie('ACCESS_TOKEN', tokens.access_token, { httpOnly: true, signed: true });
       res.cookie('REFRESH_TOKEN', tokens.refresh_token, { httpOnly: true, signed: true });
       res.cookie('ID_TOKEN', tokens.id_token);
