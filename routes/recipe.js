@@ -155,6 +155,16 @@ router.route('/')
         }
       }
 
+      cache.del(
+        cache.keys().filter((key) => 
+          (
+            key.includes('/api/recipes') ||
+            key.includes('/api/ingredients') ||
+            key.includes('/api/instructions')
+          )
+        )
+      );
+
       return res.status(200).json(newRecipeId);
     } catch (error) {
       console.error(`[API] Error:`,error);

@@ -63,7 +63,8 @@ app.get('/login',
 
     res.cookie('state', state, { httpOnly: true, signed: true });
     res.cookie('code_verifier', code_verifyer, { httpOnly: true, signed: true });
-    res.send(JSON.stringify({ cognitoLoginURL }));
+    // res.send(JSON.stringify({ cognitoLoginURL }));
+    res.redirect(cognitoLoginURL);
   }
 )
 
@@ -81,7 +82,7 @@ app.get('/token',
         }
       );
 
-      res.cookie('ACCESS_TOKEN', tokens.id_token, {
+      res.cookie('ACCESS_TOKEN', tokens.access_token, {
         httpOnly: true,
         signed: true,
         sameSite: 'lax',
@@ -106,13 +107,13 @@ app.get('/token',
   }
 );
 
-app.use(authMiddleware);
+// app.use(authMiddleware);
 
-app.use("/api", require('./routes/index'))
+app.use("/api", authMiddleware, require('./routes/index'))
 
-app.get('/me',
+app.get('/me', authMiddleware,
   async(req,res) => {
-    if(!req.user) return res.status(401).send(null);
+    // if(!req.user) return res.status(401).send(null);
 
     let data = await readUserByCognitoSub(req.user.sub);
 
@@ -138,7 +139,7 @@ app.post("/refresh",
 
       const tokens = await client.refreshTokenGrant(config, refreshToken);
 
-      res.cookie('ACCESS_TOKEN', tokens.id_token, {
+      res.cookie('ACCESS_TOKEN', tokens.access_token, {
         httpOnly: true,
         signed: true,
         sameSite: 'lax',
@@ -153,19 +154,19 @@ app.post("/refresh",
   }
 );
 
-app.get('/users',
-  async (req, res) => {
+// app.get('/users',
+//   async (req, res) => {
     
-    try {
-      console.log('IN QUERY')
-      const { rows } = await psgres('SELECT * FROM webUser');
-      res.json(rows);  
-    } catch (err) {
-      console.error(err);
-      res.status(500).send('Server Error');
-    }
-  }
-);
+//     try {
+//       console.log('IN QUERY')
+//       const { rows } = await psgres('SELECT * FROM webUser');
+//       res.json(rows);  
+//     } catch (err) {
+//       console.error(err);
+//       res.status(500).send('Server Error');
+//     }
+//   }
+// );
 
 app.listen(port, () => {
   console.log(`Server started on port ${port}`);
