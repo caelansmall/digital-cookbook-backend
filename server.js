@@ -138,7 +138,7 @@ app.post("/refresh",
 
       const tokens = await client.refreshTokenGrant(config, refreshToken);
 
-      res.cookie('ACCESS_TOKEN', tokens.access_token, {
+      res.cookie('ACCESS_TOKEN', tokens.id_token, {
         httpOnly: true,
         signed: true,
         sameSite: 'lax',

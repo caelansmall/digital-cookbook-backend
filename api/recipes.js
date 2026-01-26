@@ -44,8 +44,8 @@ const readRecipesByUserId = async (
       r.title,
       r.description,
 
-      COALESCE(ingred, '[]') AS ingredients,
-      COALESCE(instruc, '[]') AS instructions,
+      COALESCE(ingred.ingredients, '[]'::jsonb) AS ingredients,
+      COALESCE(instruc.instructions, '[]'::jsonb) AS instructions,
 
       r.userCreatedId,
       r.dateCreated
