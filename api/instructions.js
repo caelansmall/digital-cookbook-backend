@@ -10,14 +10,14 @@ const readInstructionsByRecipeId = async (
 
     const query = `
     SELECT
-      rs.id,
-      rs.recipeId,
-      rs.stepNumber,
-      rs.instruction
+      i.id,
+      i.recipeId,
+      i.stepNumber,
+      i.instruction
     FROM
-      recipe_steps rs
+      instruction i
     WHERE
-      rs.recipe_id = ${recipeId}
+      i.recipe_id = ${recipeId}
     `;
 
     const { rows } = psgres(query);
@@ -39,17 +39,17 @@ const createInstruction = async (
 
     const query = `
     INSERT INTO
-      recipe_steps (recipeId,stepNumber,instruction)
+      instruction (recipeId,stepNumber,instruction)
     VALUES
-      ($1,$2,$3})
+      ($1,$2,$3)
     RETURNING id
     `;
 
-    const values = [entity.recipeId,entity.stepNumber,entity.name];
+    const values = [entity.recipeId,entity.stepNumber,entity.instruction];
 
     const { rows } = await psgres(query,values);
 
-    return rows.id;
+    return rows[0].id;
   } catch (error) {
     console.error(`[DB] Error:`,error);
     throw error;
@@ -58,5 +58,5 @@ const createInstruction = async (
 
 module.exports = {
   readInstructionsByRecipeId,
- createInstruction,
+  createInstruction,
 }

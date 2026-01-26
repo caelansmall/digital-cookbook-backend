@@ -1,30 +1,27 @@
-const jwt = require('jsonwebtoken')
-const { createPublicKey } = require('node:crypto')
-
-const getCognitoJWTPublicKey = async (tokenSigningKeyUrl) => {
-    const res = await fetch(tokenSigningKeyUrl);
-    const data = await res.json();
-    // console.log(data);
-    const jwtSigningKey = createPublicKey({ format: 'jwk', key: data.keys[1] }).export({ format: 'pem', type: 'spki' })
-    // console.log(jwtSigningKey);
-    return jwtSigningKey
-}
-
-const verifyJWT = (jwtToken, jwtSigningKey) => {
-  return jwt.verify(jwtToken, jwtSigningKey, (err, decoded) => {
-    if (err) {
-      // console.log(jwtToken,jwtSigningKey)
-      console.error('JWT verification failed:',err.message);
-      return false;
-    } else {
-      return true;
-    }
-  });
-}
+const { jwtVerify, createRemoteJWKSet } = require("jose");
 
 const getCurrentUrl = (req) => {
-  const currentUrl = process.env.CALLBACK_DOMAIN + req['_parsedUrl'].search;
+  const currentUrl = process.env.TOKEN_CALLBACK + req['_parsedUrl'].search;
   return new URL(currentUrl);
 }
 
-module.exports = { getCurrentUrl, verifyJWT, getCognitoJWTPublicKey };
+const jwks = createRemoteJWKSet(
+  new URL(
+    `https://cognito-idp.${process.env.AWS_REGION}.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}/.well-known/jwks.json`
+  )
+);
+
+async function verifyAccessToken(token) {
+  const { payload } = await jwtVerify(token, jwks, {
+    issuer: `https://cognito-idp.${process.env.AWS_REGION}.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}`,
+    audience: process.env.COGNITO_CLIENT_ID,
+  });
+
+  if (payload.token_use !== "id") {
+    throw new Error("Invalid token_use: expected ID token");
+  }
+
+  return payload;
+}
+
+module.exports = { getCurrentUrl, verifyAccessToken };

@@ -13,7 +13,7 @@ const readRecipeById = async (
       id,
       title,
       description,
-      createdBy,
+      userCreatedId,
       dateCreated
     FROM
       recipe
@@ -47,7 +47,7 @@ const readRecipesByUserId = async (
       COALESCE(ingred, '[]') AS ingredients,
       COALESCE(instruc, '[]') AS instructions,
 
-      r.createdBy,
+      r.userCreatedId,
       r.dateCreated
     FROM
       recipe r
@@ -78,12 +78,12 @@ const readRecipesByUserId = async (
         ORDER BY ins.stepNumber ASC
       ) AS instructions
       FROM
-        recipe_steps ins
+        instruction ins
       WHERE
         ins.recipeId = r.id
     ) instruc ON true
     WHERE
-      r.createdBy = $1
+      r.userCreatedId = $1
     `;
 
     const values = [userId];
@@ -107,17 +107,17 @@ const createRecipe = async (
 
     const query = `
     INSERT INTO
-      recipe (title,description,createdBy,dateCreated)
+      recipe (title,description,userCreatedId,dateCreated)
     VALUES
       ($1,$2,$3,NOW())
     RETURNING id
     `;
 
-    const values = [entity.title.trim(),entity.description.trim(),+entity.userId];
+    const values = [entity.title.trim(),entity.description.trim(),+entity.userCreatedId];
 
     const { rows } = await psgres(query,values);
 
-    return rows.id;
+    return rows[0].id;
   } catch (error) {
     console.error('[DB] Error:',error);
     throw error;

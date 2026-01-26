@@ -12,7 +12,8 @@ const {
   createRecipe,
   createIngredient,
   createIngredientAmount,
-  createInstruction
+  createInstruction,
+  verifyExistingIngredient
 } = require('../api');
 
 const allowedOrigins = ["http://localhost:5173",];
@@ -89,7 +90,7 @@ router.route('/')
       const newRecipeId = await createRecipe({
         title: recipe.title.trim(),
         description: recipe.description ? recipe.description.trim() : null,
-        createdBy: recipe.userId,
+        userCreatedId: recipe.userCreatedId,
       });
 
       if (newRecipeId < 0) {
@@ -110,9 +111,9 @@ router.route('/')
             ingredientFound = recipeIngredients[i].ingredientId;
           } else {
             // find ingredient ID by name
-            ingredientFound = await verifyExistingIngredient(recipeIngredients.name);
+            ingredientFound = await verifyExistingIngredient(recipeIngredients[i].name);
 
-            if(ingredientFound < 0) {
+            if(!ingredientFound || ingredientFound < 0) {
               // create ingredient
               ingredientFound = await createIngredient({
                 name: recipeIngredients[i].name.trim(),
@@ -142,7 +143,7 @@ router.route('/')
 
         for(let i=0; i<recipeInstructions.length; i++) {
           const newInstructionId = await createInstruction({
-            recipe_id: newRecipeId,
+            recipeId: newRecipeId,
             stepNumber: recipeInstructions[i].stepNumber,
             instruction: recipeInstructions[i].name,
           });

@@ -1,18 +1,14 @@
 const { 
   readUserByUsername,
   createUser,
+  readUserByCognitoSub,
 } = require('../api');
 require('dotenv').config();
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const router = express.Router();
 const authMiddleware = require('../authMiddleware');
-// const { psgres } = require('../postgres-connect');
 const cors = require('cors');
-
-
-// const app = express();
-// const port = process.env.PORT || 8080;
 
 const allowedOrigins = ["http://localhost:5173",];
 
@@ -28,6 +24,28 @@ const corsOptions = {
 router.use(cors(corsOptions));
 router.use(cookieParser(process.env.COOKIE_SECRET));
 router.use(authMiddleware);
+
+router.route('/cognito/:cognitoSub') // /api/user/cognito/:cognitoSub
+.get(
+  async (req,res) => {
+    try {
+      const cognitoSub = req.params.cognitoSub;
+
+      let data = await readUserByCognitoSub(cognitoSub);
+
+      if(data.length == 0) {
+        data = await createUser({
+          cognitoSub: cognitoSub,
+        });
+      }
+
+      return res.status(200).json(data);
+    } catch (error) {
+      console.error(`[API] Error:`,error);
+      return res.status(500).json(error);
+    }
+  }
+)
 
 router.route('/username/:username') // /api/user/username/:username
 .get(async (req,res) => {

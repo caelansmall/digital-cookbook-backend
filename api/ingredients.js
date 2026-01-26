@@ -54,7 +54,7 @@ const createIngredient = async (
 
     const { rows } = await psgres(query,values);
 
-    return rows;
+    return rows[0].id;
   } catch (error) {
     console.error(`[DB] Error`,error);
     throw error;
@@ -81,7 +81,7 @@ const createIngredientAmount = async (
 
     const { rows } = await psgres(query,values);
     
-    return rows.id;
+    return rows[0].id;
   } catch (error) {
     console.error(`[DB] Error:`,error);
     throw error;
@@ -113,8 +113,9 @@ const verifyExistingIngredient = async (
 
     if(
       rows
+      && rows.length > 0
     ) {
-      return rows.id;
+      return rows[0].id;
     } else return null;
   } catch (error) {
     console.error(`[DB] Error:`,error);

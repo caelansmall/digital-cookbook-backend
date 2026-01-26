@@ -2,11 +2,10 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 const poolPostgres = new Pool({
-    user: process.env.COOKBOOK_DB_USER,
-    password: process.env.COOKBOOK_DB_USER_PW,
-    host: process.env.COOKBOOK_DB,
-    port: process.env.COOKBOOK_DB_PORT,
-    database: process.env.DATABASE_NAME
+    connectionString: process.env.CONNETION_STRING,
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
 poolPostgres.connect(err => {
