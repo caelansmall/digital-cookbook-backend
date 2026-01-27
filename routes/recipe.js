@@ -158,9 +158,9 @@ router.route('/')
       cache.del(
         cache.keys().filter((key) => 
           (
-            key.includes('/api/recipes') ||
-            key.includes('/api/ingredients') ||
-            key.includes('/api/instructions')
+            key.includes('/api/recipe') ||
+            key.includes('/api/ingredient') ||
+            key.includes('/api/instruction')
           )
         )
       );
