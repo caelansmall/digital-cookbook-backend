@@ -1,16 +1,18 @@
+require('dotenv').config();
+const router = require('express').Router(),
+      cookieParser = require('cookie-parser'),
+      authMiddleware = require('../authMiddleware'),
+      cors = require('cors')
+      cache = require('../components/nodeCache'),
+      readCache = require('./middleware/cacheRead');
+
+const allowedOrigins = ["http://localhost:5173",];
+
 const { 
   readUserByUsername,
   createUser,
   readUserByCognitoSub,
 } = require('../api');
-require('dotenv').config();
-const express = require('express');
-const cookieParser = require('cookie-parser');
-const router = express.Router();
-const authMiddleware = require('../authMiddleware');
-const cors = require('cors');
-
-const allowedOrigins = ["http://localhost:5173",];
 
 // CORS middleware
 const corsOptions = {
@@ -27,6 +29,7 @@ router.use(authMiddleware);
 
 router.route('/cognito/:cognitoSub') // /api/user/cognito/:cognitoSub
 .get(
+  readCache,
   async (req,res) => {
     try {
       const cognitoSub = req.params.cognitoSub;
@@ -39,6 +42,12 @@ router.route('/cognito/:cognitoSub') // /api/user/cognito/:cognitoSub
         });
       }
 
+      cache.set(
+        req.originalUrl,
+        data,
+        10 * 60
+      );
+
       return res.status(200).json(data);
     } catch (error) {
       console.error(`[API] Error:`,error);
@@ -48,24 +57,26 @@ router.route('/cognito/:cognitoSub') // /api/user/cognito/:cognitoSub
 )
 
 router.route('/username/:username') // /api/user/username/:username
-.get(async (req,res) => {
-  try {
-    const username = req.params.username;
+.get(
+  readCache,
+  async (req,res) => {
+    try {
+      const username = req.params.username;
 
-    let data = await readUserByUsername(username);
+      let data = await readUserByUsername(username);
 
-    if(data.length == 0) {
-      data = await createUser({
-        username: username,
-      });
+      if(data.length == 0) {
+        data = await createUser({
+          username: username,
+        });
+      }
+
+      return res.status(200).json(data);
+    } catch (error) {
+      console.error(`[API] Error:`,error);
+      return res.status(400).json(error);
     }
-
-    return res.status(200).json(data);
-  } catch (error) {
-    console.error(`[API] Error:`,error);
-    return res.status(400).json(error);
   }
-
-});
+);
 
 module.exports = router;
