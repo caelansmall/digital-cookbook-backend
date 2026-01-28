@@ -109,8 +109,6 @@ const verifyExistingIngredient = async (
 
     const { rows } = await psgres(query,values);
 
-    console.log(rows);
-
     if(
       rows
       && rows.length > 0
@@ -124,9 +122,37 @@ const verifyExistingIngredient = async (
 
 };
 
+const readIngredientsByPartialName = async (
+  partialName
+) => {
+  console.info(`[DB] readIngredientsByPartialName(${partialName})`);
+
+  try {
+
+    const query = `
+    SELECT
+      i.id,
+      i.name
+    FROM
+      ingredient i
+    WHERE
+      TRIM(UPPER(i.name)) LIKE '${partialName.toUpperCase().trim()}%'
+    `;
+
+    const { rows } = await psgres(query);
+
+    return rows;
+  } catch (error) {
+    console.error(`[DB] Error:`,error);
+    throw error;
+  }
+
+}
+
 module.exports = {
   readIngredientsByRecipeId,
   createIngredient,
   createIngredientAmount,
   verifyExistingIngredient,
+  readIngredientsByPartialName
 }

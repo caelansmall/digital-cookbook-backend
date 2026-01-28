@@ -57,7 +57,7 @@ router.route('/:recipeId')
 router.route('/user/:userId')
 .get(
   readCache,
-  async(req,res) => {
+  async (req,res) => {
     try {
 
       const userId = req.params.userId;
