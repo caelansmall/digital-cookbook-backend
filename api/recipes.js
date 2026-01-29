@@ -125,8 +125,36 @@ const createRecipe = async (
 
 };
 
+const deleteRecipeById = async (
+  recipeId,
+) => {
+  console.info(`[DB] deleteRecipeById(${recipeId})`);
+
+  try {
+
+    const query = `
+    DELETE FROM
+      recipe
+    WHERE
+      id = $1
+    RETURNING id
+    `;
+
+    const values = [recipeId];
+
+    const { rows } = await psgres(query,values);
+
+    return rows[0];
+  } catch (error) {
+    console.error(`[DB] Error:`,error);
+    throw error;
+  }
+
+}
+
 module.exports = {
   readRecipeById,
   readRecipesByUserId,
   createRecipe,
+  deleteRecipeById,
 }

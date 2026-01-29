@@ -13,7 +13,8 @@ const {
   createIngredient,
   createIngredientAmount,
   createInstruction,
-  verifyExistingIngredient
+  verifyExistingIngredient,
+  deleteRecipeById
 } = require('../api');
 
 const allowedOrigins = ["http://localhost:5173",];
@@ -21,7 +22,7 @@ const allowedOrigins = ["http://localhost:5173",];
 // CORS middleware
 const corsOptions = {
   origin: allowedOrigins,
-  methods: ["GET", "POST", "PUT"],
+  methods: ["GET", "POST", "DELETE"],
   allowedHeaders: ["Content-Type",],
   credentials: true,
   maxAge: 10
@@ -44,6 +45,29 @@ router.route('/:recipeId')
         req.originalUrl,
         data,
         10 * 60
+      );
+
+      return res.status(200).json(data);
+    } catch (error) {
+      console.error(`[API] Error:`,error);
+      return res.status(400).json(error);
+    }
+  }
+)
+.delete(
+  authMiddleware,
+  async (req,res) => {
+    try {
+      const recipeId = req.params.recipeId;
+
+      let data = await deleteRecipeById(recipeId);
+
+      cache.del(
+        cache.keys().filter((key) =>
+          (
+            key.includes('/api/recipe')
+          )
+        )
       );
 
       return res.status(200).json(data);

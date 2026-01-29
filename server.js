@@ -42,12 +42,29 @@ const corsOptions = {
 };
 
 // Enable CORS with options
-app.use(cors(corsOptions));
+// app.use(cors(corsOptions));
 
 app.use(cookieParser(process.env.COOKIE_SECRET));
 app.use(express.json());
 
+authCors = cors({
+  origin: allowedOrigins,
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Custom-Header"],
+  credentials: true,
+});
+
+apiCors = cors({
+  origin: allowedOrigins,
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Custom-Header"],
+  credentials: true,
+});
+
+app.options("/api", apiCors);
+
 app.get('/login',
+  authCors,
   async (req, res) => {
     console.log('Login requested...');
     const code_verifyer = client.randomPKCECodeVerifier();
@@ -69,6 +86,7 @@ app.get('/login',
 )
 
 app.get('/token',
+  authCors,
   async (req, res) => {
     try {
       const { state, code_verifier } = req.signedCookies;
@@ -109,9 +127,16 @@ app.get('/token',
 
 // app.use(authMiddleware);
 
-app.use("/api", authMiddleware, require('./routes/index'))
+app.options("/api/", cors());
+
+app.use("/api",
+  apiCors,
+  authMiddleware,
+  require('./routes/index')
+);
 
 app.get('/me', authMiddleware,
+  apiCors,
   async(req,res) => {
     // if(!req.user) return res.status(401).send(null);
 
@@ -132,6 +157,7 @@ app.get('/me', authMiddleware,
 );
 
 app.post("/refresh",
+  authCors,
   async(req,res) => {
     try {
       const refreshToken = req.signedCookies.REFRESH_TOKEN;
