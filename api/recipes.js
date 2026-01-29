@@ -113,7 +113,7 @@ const createRecipe = async (
     RETURNING id
     `;
 
-    const values = [entity.title.trim(),entity.description.trim(),+entity.userCreatedId];
+    const values = [entity.title.trim(),(entity.description ? entity.description.trim() : null),+entity.userCreatedId];
 
     const { rows } = await psgres(query,values);
 
