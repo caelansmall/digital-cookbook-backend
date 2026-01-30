@@ -10,20 +10,62 @@ const readRecipeById = async (
 
     const query = `
     SELECT
-      id,
-      title,
-      description,
-      userCreatedId,
-      dateCreated
+      r.id,
+      r.title,
+      r.description,
+
+      COALESCE(ingred.ingredients, '[]'::jsonb) AS ingredients,
+      COALESCE(instruc.instructions, '[]'::jsonb) AS instructions,
+
+      r.userCreatedId,
+      r.dateCreated
     FROM
-      recipe
+      recipe r
+    LEFT JOIN LATERAL (
+      SELECT jsonb_agg(
+        json_build_object(
+          'ingredientId', i.id,
+          'name', i.name,
+          'ingredientAmountId', ia.id,
+          'quantity', ia.quantity
+        )
+        ORDER BY i.name ASC
+      ) AS ingredients
+      FROM
+        ingredientAmount ia
+      JOIN
+        ingredient i
+      ON
+        i.id = ia.ingredientId
+      WHERE
+        ia.recipeId = r.id
+    ) ingred ON true
+    
+    LEFT JOIN LATERAL (
+      SELECT jsonb_agg(
+        json_build_object(
+          'id', ins.id,
+          'stepNumber', ins.stepNumber,
+          'instruction', ins.instruction
+        )
+        ORDER BY ins.stepNumber ASC
+      ) AS instructions
+      FROM
+        instruction ins
+      WHERE
+        ins.recipeId = r.id
+    ) instruc ON true
     WHERE
-      id = ${recipeId}
+      r.id = $1
     `;
 
-    const { rows } = await psgres(query);
+    const values = [recipeId]
 
-    return rows;
+    const { rows } = await psgres(query,values);
+
+    if(rows) {
+      return rows[0];
+    } else return null;
   } catch (error) {
     console.error(`[DB] Error:`,error);
     throw error;
@@ -54,7 +96,9 @@ const readRecipesByUserId = async (
     LEFT JOIN LATERAL (
       SELECT jsonb_agg(
         json_build_object(
+          'ingredientId', i.id,
           'name', i.name,
+          'ingredientAmountId', ia.id,
           'quantity', ia.quantity
         )
         ORDER BY i.name ASC
@@ -72,6 +116,7 @@ const readRecipesByUserId = async (
     LEFT JOIN LATERAL (
       SELECT jsonb_agg(
         json_build_object(
+          'id', ins.id,
           'stepNumber', ins.stepNumber,
           'instruction', ins.instruction
         )
@@ -150,11 +195,45 @@ const deleteRecipeById = async (
     throw error;
   }
 
-}
+};
+
+const updateRecipeById = async (
+  entity,
+) => {
+  console.info(`[DB] updateRecipeById(entity)`,entity);
+
+  try {
+
+    const query = `
+    UPDATE recipe
+    SET
+      title = $1,
+      description = $2
+    WHERE
+      id = $3
+    RETURNING id
+    `;
+
+    const values = [entity.title,entity.description,entity.id];
+
+    const { rows } = await psgres(query,values);
+
+    if(rows) {
+      return rows[0];
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error(`[DB] Error:`,error);
+    throw error;
+  }
+
+};
 
 module.exports = {
   readRecipeById,
   readRecipesByUserId,
   createRecipe,
   deleteRecipeById,
+  updateRecipeById
 }

@@ -14,7 +14,10 @@ const {
   createIngredientAmount,
   createInstruction,
   verifyExistingIngredient,
-  deleteRecipeById
+  deleteRecipeById,
+  updateRecipeById,
+  readIngredientByName,
+  deleteInstructionById
 } = require('../api');
 
 const allowedOrigins = ["http://localhost:5173",];
@@ -76,6 +79,166 @@ router.route('/:recipeId')
       return res.status(400).json(error);
     }
   }
+)
+.put(
+  authMiddleware,
+  async (req,res) => {
+    try {
+      const recipeId = req.params.recipeId;
+      const newRecipe = req.body;
+
+      const oldRecipe = await readRecipeById(recipeId);
+      
+      if(
+        newRecipe.title.trim().toUpperCase() !== oldRecipe.title.trim().toUpperCase()
+        || (newRecipe.description ? newRecipe.description.trim().toUpperCase() : null) !== (oldRecipe.description ? oldRecipe.description.trim().toUpperCase() : null)
+      ) {
+        const updatedRecipe = await updateRecipeById(newRecipe);
+
+        if(!updatedRecipe) {
+          return res.status(400);
+        }
+      }
+
+      const oldInstructions = new Map(
+        oldRecipe.instructions
+        .filter(i => i.id !== null && i.id !== undefined)
+        .map(i => [Number(i.id), i]));
+
+      const seenOldInstructions = new Set();
+      const newInstructions = newRecipe.instructions;
+
+      for (let i=0; i<newInstructions.length; i++) {
+        const instruct = newInstructions[i];
+        const stepNumber = i + 1;
+
+        if(instruct.id) {
+          // existing entry
+          const oldInstruction = oldInstructions.get(Number(instruct.id));
+          seenOldInstructions.add(Number(instruct.id));
+          if(!oldInstruction) continue;
+
+          if ((
+            oldInstruction.instruction.trim().toUpperCase() !== instruct.instruction.trim().toUpperCase())
+            || (+oldInstruction.stepNumber !== stepNumber)
+          ) {
+            const updatedInstruct = await updateInstructionById({
+              id: +instruct.id,
+              instruction: instruct.instruction,
+              stepNumber: stepNumber
+            });
+
+            if (!updatedInstruct) {
+              return res.status(400);
+            }
+          }
+        } else {
+          // new instruction
+          const newCreatedInstruct = await createInstruction({
+            recipeId: recipeId,
+            stepNumber: stepNumber,
+            instruction: newInstructions[i].instruction
+          });
+
+          if (!newCreatedInstruct) {
+            return res.status(400);
+          }
+        }
+      }
+
+      for (const [id] of oldInstructions) {
+        if (!seenOldInstructions.has(id)) {
+          const deletedId = await deleteInstructionById(id);
+
+          if (!deletedId) return res.status(400);
+        }
+      }
+
+      const newIngredients = newRecipe.ingredients;
+      const oldIngredients = oldRecipe.ingredients;
+
+      let oldIngredAmountId = new Map(oldIngredients.map(r => [r.ingredientAmountId,r]));
+      let seenIngredient = new Set();
+
+      for (const ingred of newIngredients) {
+        
+        if (ingred.ingredientAmountId) {
+          const olderCurrentIngredient = oldIngredAmountId.get(ingred.ingredientAmountId);
+          seenIngredient.add(ingred.ingredientAmountId);
+
+          let finalId = ingred.ingredientId;
+
+          if(!finalId) {
+            finalId = await readIngredientByName(ingred.name);
+
+            if(!finalId) {
+              finalId = await createIngredient({
+                name: ingred.name,
+              });
+            }
+          }
+
+          const ingredientChanged = olderCurrentIngredient.ingredientId !== finalId;
+          const quantityChanged = olderCurrentIngredient.quantity.trim().toUpperCase() !== ingred.quantity.trim().toUpperCase();
+
+          if (ingredientChanged || quantityChanged) {
+            const updatedIngredientAmount = await updateIngredientAmountById({
+              recipeId: recipeId,
+              ingredientId: finalId,
+              quantity: ingred.quantity,
+              ingredientAmountId: ingred.ingredientAmountId,
+            });
+
+            if(!updatedIngredientAmount) return res.status(400);
+          }
+        } else{
+          // new ingredient amount
+          let finalIngredientId = ingred.ingredientId;
+
+          if (!finalIngredientId) {
+            finalIngredientId = await readIngredientByName(ingred.name);
+
+            if (!finalIngredientId) {
+              finalIngredientId = await createIngredient({name: ingred.name});
+            }
+          }
+
+          const newIngredAmountId = await createIngredientAmount({
+            recipeId: recipeId,
+            ingredientId: finalIngredientId,
+            quantity: ingred.quantity
+          });
+
+          if(!newIngredAmountId) {
+            return res.status(400)
+           } else seenIngredient.add(newIngredAmountId);
+        }
+      }
+
+      for (const oldEntry of oldIngredients) {
+        if (!seenIngredient.has(oldEntry.ingredientAmountId)) {
+          const deletedId = await deleteIngredientAmountById(oldEntry.ingredientAmountId);
+
+          if(!deletedId) return res.status(400);
+        }
+      }
+
+      cache.del(
+        cache.keys().filter((key) =>
+          (
+            key.includes('/api/recipe'),
+            key.includes('/api/ingredient'),
+            key.includes('/api/instruction')
+          )
+        )
+      );
+
+      return res.status(200).json(recipeId);
+    } catch (error) {
+      console.error(`[API] Error:`,error);
+      return res.status(400).json(error);
+    }
+  } 
 );
 
 router.route('/user/:userId')

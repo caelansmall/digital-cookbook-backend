@@ -33,17 +33,6 @@ const port = process.env.PORT || 8080;
 const allowedOrigins = ["http://localhost:5173",];
 
 // CORS middleware
-const corsOptions = {
-  origin: allowedOrigins, // Pass the list of domains
-  methods: ["GET", "POST"], // Allow only GET and POST methods
-  allowedHeaders: ["Content-Type", "Authorization", "X-Custom-Header"], // Allow only these headers
-  credentials: true, // Allow credentials (cookies) to be sent
-  maxAge: 10,
-};
-
-// Enable CORS with options
-// app.use(cors(corsOptions));
-
 app.use(cookieParser(process.env.COOKIE_SECRET));
 app.use(express.json());
 
