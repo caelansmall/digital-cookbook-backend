@@ -226,8 +226,8 @@ router.route('/:recipeId')
       cache.del(
         cache.keys().filter((key) =>
           (
-            key.includes('/api/recipe'),
-            key.includes('/api/ingredient'),
+            key.includes('/api/recipe') ||
+            key.includes('/api/ingredient') ||
             key.includes('/api/instruction')
           )
         )

@@ -5,7 +5,7 @@ const MINUTE = 60;
 const cache = new NodeCache(
   {
     stdTTL: 10 * MINUTE,
-    chcekperiod: 1 * MINUTE,
+    checkperiod: 1 * MINUTE,
   }
 );
 
