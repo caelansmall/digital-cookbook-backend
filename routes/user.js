@@ -12,6 +12,7 @@ const {
   readUserByUsername,
   createUser,
   readUserByCognitoSub,
+  updateUserById,
 } = require('../api');
 
 // CORS middleware
@@ -78,5 +79,35 @@ router.route('/username/:username') // /api/user/username/:username
     }
   }
 );
+
+router.route('/:userId')
+.put(
+  authMiddleware,
+  async (req,res) => {
+    try {
+      const userData = req.body;
+
+      const updatedUser = await updateUserById(userData);
+
+      if (updatedUser < 0) {
+        console.error(`[API] Error updating user data.`);
+        return res.status(400);
+      }
+
+      cache.del(
+        cache.keys().filter((key) =>
+          (
+            key.includes('/api/user')
+          )
+        )
+      );
+
+      return res.status(200).json(updatedUser);
+    } catch (error) {
+      console.error(`[API] Error:`,error);
+      return res.status(400).json(error);
+    }
+  }
+)
 
 module.exports = router;
