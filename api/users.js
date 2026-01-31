@@ -6,9 +6,6 @@ const authMiddleware = require('../authMiddleware');
 const { psgres } = require('../postgres-connect');
 const cors = require('cors');
 
-const app = express();
-const port = process.env.PORT || 8080;
-
 const allowedOrigins = ["http://localhost:5173",];
 
 // CORS middleware
@@ -38,7 +35,8 @@ const readUserByUsername = async (
       lastname,
       email,
       phonenumber,
-      username
+      username,
+      cognitoSub
     FROM
       webUser
     WHERE
@@ -64,21 +62,15 @@ const createUser = async (
 
     const query = `
     INSERT INTO
-      webUser (firstname,lastname,email,phonenumber,username)
+      webUser (firstname,lastname,email,phonenumber,username,cognitoSub)
     VALUES
-    (
-      '${user.firstName ? user.firstName : ''}',
-      '${user.lastName ? user.lastName : ''}',
-      '${user.email ? user.email : ''}',
-      '${user.phoneNumber ? user.phoneNumber : ''}',
-      '${user.username ? user.username : ''}'
-    )
+    ($1,$2,$3,$4,$5,$6)
     RETURNING *;
     `;
 
-    const { rows } = await psgres(query);
+    const values = [user.firstName,user.lastName,user.email,user.phoneNumber,user.username,user.cognitoSub];
 
-    console.log(rows);
+    const { rows } = await psgres(query,values);
 
     return rows;
   } catch (error) {
@@ -88,7 +80,41 @@ const createUser = async (
 
 };
 
+const readUserByCognitoSub = async (
+  sub,
+) => {
+  console.info(`[DB] readUserByCognitoSub(${sub})`);
+
+  try {
+
+    const query = `
+    SELECT
+      w.id,
+      w.firstName,
+      w.lastName,
+      w.email,
+      w.phoneNumber,
+      w.username,
+      w.cognitoSub
+    FROM
+      webUser w
+    WHERE
+      w.cognitoSub = $1
+    `;
+
+    values = [sub];
+
+    const { rows } = await psgres(query,values);
+
+    return rows;
+  } catch (error) {
+    console.error('[DB] Error:',error);
+    throw error;
+  }
+}
+
 module.exports = {
   readUserByUsername,
+  readUserByCognitoSub,
   createUser,
 }

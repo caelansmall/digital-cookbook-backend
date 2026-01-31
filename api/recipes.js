@@ -1,0 +1,239 @@
+require('dotenv').config();
+const { psgres } = require('../postgres-connect');
+
+const readRecipeById = async (
+  recipeId,
+) => {
+  console.info(`[DB] readRecipeById(${recipeId})`);
+
+  try {
+
+    const query = `
+    SELECT
+      r.id,
+      r.title,
+      r.description,
+
+      COALESCE(ingred.ingredients, '[]'::jsonb) AS ingredients,
+      COALESCE(instruc.instructions, '[]'::jsonb) AS instructions,
+
+      r.userCreatedId,
+      r.dateCreated
+    FROM
+      recipe r
+    LEFT JOIN LATERAL (
+      SELECT jsonb_agg(
+        json_build_object(
+          'ingredientId', i.id,
+          'name', i.name,
+          'ingredientAmountId', ia.id,
+          'quantity', ia.quantity
+        )
+        ORDER BY i.name ASC
+      ) AS ingredients
+      FROM
+        ingredientAmount ia
+      JOIN
+        ingredient i
+      ON
+        i.id = ia.ingredientId
+      WHERE
+        ia.recipeId = r.id
+    ) ingred ON true
+    
+    LEFT JOIN LATERAL (
+      SELECT jsonb_agg(
+        json_build_object(
+          'id', ins.id,
+          'stepNumber', ins.stepNumber,
+          'instruction', ins.instruction
+        )
+        ORDER BY ins.stepNumber ASC
+      ) AS instructions
+      FROM
+        instruction ins
+      WHERE
+        ins.recipeId = r.id
+    ) instruc ON true
+    WHERE
+      r.id = $1
+    `;
+
+    const values = [recipeId]
+
+    const { rows } = await psgres(query,values);
+
+    if(rows) {
+      return rows[0];
+    } else return null;
+  } catch (error) {
+    console.error(`[DB] Error:`,error);
+    throw error;
+  }
+
+};
+
+const readRecipesByUserId = async (
+  userId,
+) => {
+  console.info(`[DB] readRecipesByUserId(${userId})`);
+
+  try {
+
+    const query = `
+    SELECT
+      r.id,
+      r.title,
+      r.description,
+
+      COALESCE(ingred.ingredients, '[]'::jsonb) AS ingredients,
+      COALESCE(instruc.instructions, '[]'::jsonb) AS instructions,
+
+      r.userCreatedId,
+      r.dateCreated
+    FROM
+      recipe r
+    LEFT JOIN LATERAL (
+      SELECT jsonb_agg(
+        json_build_object(
+          'ingredientId', i.id,
+          'name', i.name,
+          'ingredientAmountId', ia.id,
+          'quantity', ia.quantity
+        )
+        ORDER BY i.name ASC
+      ) AS ingredients
+      FROM
+        ingredientAmount ia
+      JOIN
+        ingredient i
+      ON
+        i.id = ia.ingredientId
+      WHERE
+        ia.recipeId = r.id
+    ) ingred ON true
+    
+    LEFT JOIN LATERAL (
+      SELECT jsonb_agg(
+        json_build_object(
+          'id', ins.id,
+          'stepNumber', ins.stepNumber,
+          'instruction', ins.instruction
+        )
+        ORDER BY ins.stepNumber ASC
+      ) AS instructions
+      FROM
+        instruction ins
+      WHERE
+        ins.recipeId = r.id
+    ) instruc ON true
+    WHERE
+      r.userCreatedId = $1
+    `;
+
+    const values = [userId];
+
+    const { rows } = await psgres(query,values);
+
+    return rows;
+  } catch (error) {
+    console.error(`[DB] Error:`,error);
+    throw error;
+  }
+
+};
+
+const createRecipe = async (
+  entity,
+) => {
+  console.info(`[DB] createRecipe(entity)`,entity);
+
+  try {
+
+    const query = `
+    INSERT INTO
+      recipe (title,description,userCreatedId,dateCreated)
+    VALUES
+      ($1,$2,$3,NOW())
+    RETURNING id
+    `;
+
+    const values = [entity.title.trim(),(entity.description ? entity.description.trim() : null),+entity.userCreatedId];
+
+    const { rows } = await psgres(query,values);
+
+    return rows[0].id;
+  } catch (error) {
+    console.error('[DB] Error:',error);
+    throw error;
+  }
+
+};
+
+const deleteRecipeById = async (
+  recipeId,
+) => {
+  console.info(`[DB] deleteRecipeById(${recipeId})`);
+
+  try {
+
+    const query = `
+    DELETE FROM
+      recipe
+    WHERE
+      id = $1
+    RETURNING id
+    `;
+
+    const values = [recipeId];
+
+    const { rows } = await psgres(query,values);
+
+    return rows[0];
+  } catch (error) {
+    console.error(`[DB] Error:`,error);
+    throw error;
+  }
+
+};
+
+const updateRecipeById = async (
+  entity,
+) => {
+  console.info(`[DB] updateRecipeById(entity)`,entity);
+
+  try {
+
+    const query = `
+    UPDATE recipe
+    SET
+      title = $1,
+      description = $2
+    WHERE
+      id = $3
+    RETURNING id
+    `;
+
+    const values = [entity.title,entity.description,entity.id];
+
+    const { rows } = await psgres(query,values);
+
+    if(rows) {
+      return rows[0];
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error(`[DB] Error:`,error);
+    throw error;
+  }
+
+};
+
+module.exports = {
+  readRecipeById,
+  readRecipesByUserId,
+  createRecipe,
+  deleteRecipeById,
+  updateRecipeById
+}

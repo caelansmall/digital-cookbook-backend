@@ -5,24 +5,23 @@ const client = require("openid-client")
 const cors = require('cors');
 const { psgres } = require('./postgres-connect');
 const authMiddleware = require('./authMiddleware');
-const { getCurrentUrl, getCognitoJWTPublicKey } = require('./utils');
+const { getCurrentUrl, } = require('./utils');
+const { readUserByCognitoSub } = require('./api');
 
-global.jwtSigningKey;
 let config;
 
 async function initializeServer() {
   // Initialize OpenID Client
-  let server = new URL(`https://cognito-idp.${process.env.AWS_REGION}.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}`)
-  let clientId = process.env.COGNITO_CLIENT_ID;
-  let clientSecret = process.env.COGNITO_CLIENT_SECRET;
-  config = await client.discovery(
-    server,
-    clientId,
-    clientSecret,
+  const server = new URL(
+    `https://cognito-idp.${process.env.AWS_REGION}.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}`
   );
 
-  jwtSigningKey = await getCognitoJWTPublicKey(server.href + "/.well-known/jwks.json");
-  // console.log(jwtSigningKey)
+  config = await client.discovery(
+    server,
+    process.env.COGNITO_CLIENT_ID,
+    process.env.COGNITO_CLIENT_SECRET,
+  );
+
 }
 
 initializeServer().catch(console.error);
@@ -34,102 +33,155 @@ const port = process.env.PORT || 8080;
 const allowedOrigins = ["http://localhost:5173",];
 
 // CORS middleware
-const corsOptions = {
-  origin: allowedOrigins, // Pass the list of domains
-  methods: ["GET", "POST"], // Allow only GET and POST methods
-  allowedHeaders: ["Content-Type", "Authorization", "X-Custom-Header"], // Allow only these headers
-  credentials: true, // Allow credentials (cookies) to be sent
-  maxAge: 10,
-};
-
-// Enable CORS with options
-app.use(cors(corsOptions));
-
 app.use(cookieParser(process.env.COOKIE_SECRET));
-app.use(authMiddleware);
+app.use(express.json());
 
-app.use("/api", require('./routes/index'))
+authCors = cors({
+  origin: allowedOrigins,
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Custom-Header"],
+  credentials: true,
+});
+
+apiCors = cors({
+  origin: allowedOrigins,
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Custom-Header"],
+  credentials: true,
+});
+
+app.options("/api", apiCors);
 
 app.get('/login',
+  authCors,
   async (req, res) => {
     console.log('Login requested...');
     const code_verifyer = client.randomPKCECodeVerifier();
     const code_challenge = await client.calculatePKCECodeChallenge(code_verifyer);
     const state = client.randomState();
     let parameters = {
-      redirect_uri: process.env.CALLBACK_DOMAIN,
+      redirect_uri: process.env.TOKEN_CALLBACK,
       code_challenge,
       code_challenge_method: 'S256',
       state
     };
     const cognitoLoginURL = client.buildAuthorizationUrl(config, parameters).href;
-    // console.log(cognitoLoginURL)
+
     res.cookie('state', state, { httpOnly: true, signed: true });
     res.cookie('code_verifier', code_verifyer, { httpOnly: true, signed: true });
-    res.send(JSON.stringify({ cognitoLoginURL }));
+    // res.send(JSON.stringify({ cognitoLoginURL }));
+    res.redirect(cognitoLoginURL);
   }
 )
 
 app.get('/token',
+  authCors,
   async (req, res) => {
     try {
-      console.log('Token requested...');
       const { state, code_verifier } = req.signedCookies;
-      // console.log(state, code_verifier, config, getCurrentUrl(req));
-      let tokens = await client.authorizationCodeGrant(
+
+      const tokens = await client.authorizationCodeGrant(
         config,
         getCurrentUrl(req),
         {
           pkceCodeVerifier: code_verifier,
           expectedState: state,
-        },
+        }
       );
 
-      // console.log('----------------------')
-      // console.log(tokens)
-      // console.log('^^^^^^^^^^^^^^^^^^^^^^^^^')
+      res.cookie('ACCESS_TOKEN', tokens.access_token, {
+        httpOnly: true,
+        signed: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'prod'
+      });
 
-      res.cookie('ACCESS_TOKEN', tokens.access_token, { httpOnly: true, signed: true });
-      res.cookie('REFRESH_TOKEN', tokens.refresh_token, { httpOnly: true, signed: true });
-      res.cookie('ID_TOKEN', tokens.id_token);
-      res.clearCookie("state");
-      res.clearCookie("code_verifier");
-      res.send(tokens);
+      res.cookie('REFRESH_TOKEN', tokens.refresh_token, {
+        httpOnly: true,
+        signed: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'prod',
+      });
+
+      res.clearCookie('state');
+      res.clearCookie('code_verifier');
+
+      res.redirect(process.env.CALLBACK_DOMAIN);
     } catch (error) {
       console.error(error);
-      res.status(500).send(error);
+      res.status(500).send("Authentication failed");
     }
   }
-)
+);
 
-app.get('/todos',
-  async (req, res) => {
-    // console.log('>>',JSON.parse(Buffer.from(req?.signedCookies?.ACCESS_TOKEN?.split('.')[1], 'base64')?.toString('utf8')));
-    
-    const todos = ["task1", "task2", "task3"];
-    const adminTodos = ["adminTask1", "admiTask2", "adminTask3"];
-    const isAdmin = JSON.parse(Buffer.from(req?.signedCookies?.ACCESS_TOKEN?.split('.')[1], 'base64')?.toString('utf8'))['cognito:groups']?.includes('Admin');
-    res.send(isAdmin ? adminTodos : todos)
+// app.use(authMiddleware);
+
+app.options("/api/", cors());
+
+app.use("/api",
+  apiCors,
+  authMiddleware,
+  require('./routes/index')
+);
+
+app.get('/me', authMiddleware,
+  apiCors,
+  async(req,res) => {
+    // if(!req.user) return res.status(401).send(null);
+
+    let data = await readUserByCognitoSub(req.user.sub);
+
+    if(data.length == 0) {
+      data = await createUser({
+        cognitoSub: req.user.sub,
+      });
+    }
+
+    if (!data.length) {
+      return res.status(404).send("User not found");
+    }
+
+    res.json(data[0]);
   }
-)
+);
 
-app.get('/users',
-  async (req, res) => {
-    
+app.post("/refresh",
+  authCors,
+  async(req,res) => {
     try {
-      console.log('IN QUERY')
-      const { rows } = await psgres('SELECT * FROM webUser');
-      res.json(rows);  
-    } catch (err) {
-      console.error(err);
-      res.status(500).send('Server Error');
+      const refreshToken = req.signedCookies.REFRESH_TOKEN;
+      if (!refreshToken) throw new Error("Missing refresh token");
+
+      const tokens = await client.refreshTokenGrant(config, refreshToken);
+
+      res.cookie('ACCESS_TOKEN', tokens.access_token, {
+        httpOnly: true,
+        signed: true,
+        sameSite: 'lax',
+      });
+
+      res.sendStatus(204);
+    } catch (error) {
+      res.clearCookie("ACCESS_TOKEN");
+      res.clearCookie("REFRESH_TOKEN");
+      res.status(401).send("Session expired");
     }
   }
-)
+);
 
-// app.get("/api", (req,res) => {
-//   res.json({"fruits": ["apple", "banana", "pear"]});
-// });
+// app.get('/users',
+//   async (req, res) => {
+    
+//     try {
+//       console.log('IN QUERY')
+//       const { rows } = await psgres('SELECT * FROM webUser');
+//       res.json(rows);  
+//     } catch (err) {
+//       console.error(err);
+//       res.status(500).send('Server Error');
+//     }
+//   }
+// );
 
 app.listen(port, () => {
   console.log(`Server started on port ${port}`);
