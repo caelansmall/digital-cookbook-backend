@@ -38,6 +38,7 @@ const port = process.env.PORT || 8080;
 // List of allowed origins
 const allowedOrigins = [
   "http://localhost:5173",
+  "https://thedigitalcookbook.com"
 ];
 
 // CORS middleware
