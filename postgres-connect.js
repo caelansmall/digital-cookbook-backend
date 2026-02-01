@@ -5,7 +5,9 @@ const poolPostgres = new Pool({
     connectionString: process.env.CONNETION_STRING,
     ssl: {
         rejectUnauthorized: false
-    }
+    },
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
 });
 
 poolPostgres.connect(err => {
