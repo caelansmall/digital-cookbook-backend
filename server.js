@@ -6,7 +6,7 @@ const cors = require('cors');
 const { psgres } = require('./postgres-connect');
 const authMiddleware = require('./authMiddleware');
 const { getCurrentUrl, } = require('./utils');
-const { readUserByCognitoSub } = require('./api');
+const { readUserByCognitoSub, createUser } = require('./api');
 
 let config;
 
@@ -25,6 +25,13 @@ async function initializeServer() {
 }
 
 initializeServer().catch(console.error);
+
+const authCookieConfig = {
+  httpOnly: true,
+  signed: true,
+  sameSite: 'lax',
+  secure: process.env.NODE_ENV === 'prod',
+}
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -89,19 +96,9 @@ app.get('/token',
         }
       );
 
-      res.cookie('ACCESS_TOKEN', tokens.access_token, {
-        httpOnly: true,
-        signed: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'prod'
-      });
+      res.cookie('ACCESS_TOKEN', tokens.access_token, authCookieConfig);
 
-      res.cookie('REFRESH_TOKEN', tokens.refresh_token, {
-        httpOnly: true,
-        signed: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'prod',
-      });
+      res.cookie('REFRESH_TOKEN', tokens.refresh_token, authCookieConfig);
 
       res.clearCookie('state');
       res.clearCookie('code_verifier');
@@ -124,8 +121,9 @@ app.use("/api",
   require('./routes/index')
 );
 
-app.get('/me', authMiddleware,
+app.get('/me',
   apiCors,
+  authMiddleware,
   async(req,res) => {
     // if(!req.user) return res.status(401).send(null);
 
@@ -154,11 +152,7 @@ app.post("/refresh",
 
       const tokens = await client.refreshTokenGrant(config, refreshToken);
 
-      res.cookie('ACCESS_TOKEN', tokens.access_token, {
-        httpOnly: true,
-        signed: true,
-        sameSite: 'lax',
-      });
+      res.cookie('ACCESS_TOKEN', tokens.access_token, authCookieConfig);
 
       res.sendStatus(204);
     } catch (error) {

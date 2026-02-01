@@ -31,10 +31,10 @@ const readUserByUsername = async (
     const query = `
     SELECT
       id,
-      firstname,
-      lastname,
+      firstName,
+      lastName,
       email,
-      phonenumber,
+      phoneNumber,
       username,
       cognitoSub
     FROM
@@ -62,7 +62,7 @@ const createUser = async (
 
     const query = `
     INSERT INTO
-      webUser (firstname,lastname,email,phonenumber,username,cognitoSub)
+      webUser (firstName,lastName,email,phoneNumber,username,cognitoSub)
     VALUES
     ($1,$2,$3,$4,$5,$6)
     RETURNING *;
@@ -90,10 +90,10 @@ const readUserByCognitoSub = async (
     const query = `
     SELECT
       w.id,
-      w.firstName,
-      w.lastName,
+      w.firstName AS "firstName",
+      w.lastName AS "lastName",
       w.email,
-      w.phoneNumber,
+      w.phoneNumber AS "phoneNumber",
       w.username,
       w.cognitoSub
     FROM
@@ -113,8 +113,41 @@ const readUserByCognitoSub = async (
   }
 }
 
+const updateUserById = async (
+  entity,
+) => {
+  console.info(`[DB] updateUserById(entity)`,entity);
+
+  try {
+
+    const query = `
+    UPDATE webUser
+    SET
+      firstName = $1,
+      lastName = $2,
+      phoneNumber = $3
+    WHERE
+      id = $4
+    RETURNING id
+    `;
+
+    const values = [entity.firstName.trim(),entity.lastName.trim(),entity.phoneNumber.trim(),entity.id];
+
+    const { rows } = await psgres(query,values);
+
+    if(rows) {
+      return rows[0].id;
+    } else return null;
+  } catch (error) {
+    console.error(`[DB] Error:`,error);
+    throw error;
+  }
+
+};
+
 module.exports = {
   readUserByUsername,
   readUserByCognitoSub,
   createUser,
+  updateUserById,
 }
