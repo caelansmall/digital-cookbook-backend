@@ -30,6 +30,7 @@ const authCookieConfig = {
   signed: true,
   sameSite: process.env.NODE_ENV === 'prod' ? 'none' : 'lax',
   secure: process.env.NODE_ENV === 'prod',
+  domain: process.env.NODE_ENV === 'prod' ? '.thedigitalcookbook.com' : undefined,
 }
 
 const app = express();
