@@ -3,7 +3,6 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const client = require("openid-client")
 const cors = require('cors');
-const { psgres } = require('./postgres-connect');
 const authMiddleware = require('./authMiddleware');
 const { getCurrentUrl, } = require('./utils');
 const { readUserByCognitoSub, createUser } = require('./api');
@@ -29,7 +28,7 @@ initializeServer().catch(console.error);
 const authCookieConfig = {
   httpOnly: true,
   signed: true,
-  sameSite: 'lax',
+  sameSite: process.env.NODE_ENV === 'prod' ? 'none' : 'lax',
   secure: process.env.NODE_ENV === 'prod',
 }
 
@@ -37,7 +36,9 @@ const app = express();
 const port = process.env.PORT || 8080;
 
 // List of allowed origins
-const allowedOrigins = ["http://localhost:5173",];
+const allowedOrigins = [
+  "http://localhost:5173",
+];
 
 // CORS middleware
 app.use(cookieParser(process.env.COOKIE_SECRET));
@@ -58,6 +59,10 @@ apiCors = cors({
 });
 
 app.options("/api", apiCors);
+
+app.get('/health,', (req,res) => {
+  res.status(200).send('OK');
+});
 
 app.get('/login',
   authCors,
