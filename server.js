@@ -125,7 +125,7 @@ app.get('/me',
   apiCors,
   authMiddleware,
   async(req,res) => {
-    // if(!req.user) return res.status(401).send(null);
+    // if(!req.user) return res.status(401).json({ error: 'Not authenticated' });
 
     let data = await readUserByCognitoSub(req.user.sub);
 
