@@ -230,10 +230,84 @@ const updateRecipeById = async (
 
 };
 
+const readRecipeByPartialName = async (
+  name,
+  userId
+) => {
+  console.info(`[DB] readRecipeByPartialName(${name},${userId})`);
+
+  try {
+
+    const query = `
+    SELECT
+      r.id,
+      r.title,
+      r.description,
+
+      COALESCE(ingred.ingredients, '[]'::jsonb) AS ingredients,
+      COALESCE(instruc.instructions, '[]'::jsonb) AS instructions,
+
+      r.userCreatedId,
+      r.dateCreated
+    FROM
+      recipe r
+    LEFT JOIN LATERAL (
+      SELECT jsonb_agg(
+        json_build_object(
+          'ingredientId', i.id,
+          'name', i.name,
+          'ingredientAmountId', ia.id,
+          'quantity', ia.quantity
+        )
+        ORDER BY i.name ASC
+      ) AS ingredients
+      FROM
+        ingredientAmount ia
+      JOIN
+        ingredient i
+      ON
+        i.id = ia.ingredientId
+      WHERE
+        ia.recipeId = r.id
+    ) ingred ON true
+    
+    LEFT JOIN LATERAL (
+      SELECT jsonb_agg(
+        json_build_object(
+          'id', ins.id,
+          'stepNumber', ins.stepNumber,
+          'instruction', ins.instruction
+        )
+        ORDER BY ins.stepNumber ASC
+      ) AS instructions
+      FROM
+        instruction ins
+      WHERE
+        ins.recipeId = r.id
+    ) instruc ON true
+    WHERE
+      UPPER(r.title) LIKE UPPER('%${name}%')
+    AND
+      r.userCreatedId = $1
+    `;
+
+    const values = [userId];
+
+    const { rows } = await psgres(query,values);
+
+    return rows;
+  } catch (error) {
+    console.error(`[DB] Error:`,error);
+    throw error;
+  }
+
+};
+
 module.exports = {
   readRecipeById,
   readRecipesByUserId,
   createRecipe,
   deleteRecipeById,
-  updateRecipeById
+  updateRecipeById,
+  readRecipeByPartialName
 }

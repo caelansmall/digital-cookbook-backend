@@ -17,7 +17,8 @@ const {
   deleteRecipeById,
   updateRecipeById,
   readIngredientByName,
-  deleteInstructionById
+  deleteInstructionById,
+  readRecipeByPartialName,
 } = require('../api');
 
 const allowedOrigins = ["http://localhost:5173",];
@@ -239,6 +240,25 @@ router.route('/:recipeId')
       return res.status(400).json(error);
     }
   } 
+);
+
+router.route('/autocomplete')
+.post(
+  readCache,
+  async (req,res) => {
+    try {
+
+      const { name, userId } = req.body;
+
+      let data = await readRecipeByPartialName(name.trim(),userId);
+
+      return res.status(200).json(data);
+    } catch (error) {
+      console.error(`[API] Error:`,error);
+      return res.status(400).json(error);
+    }
+  }
+
 );
 
 router.route('/user/:userId')
