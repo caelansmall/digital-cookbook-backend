@@ -9,6 +9,8 @@ const router = require('express').Router(),
 const { 
   readRecipeById,
   readRecipesByUserId,
+  readRecipesNewestByUserId,
+  readRecipesOldestByUserId,
   createRecipe,
   createIngredient,
   createIngredientAmount,
@@ -17,7 +19,8 @@ const {
   deleteRecipeById,
   updateRecipeById,
   readIngredientByName,
-  deleteInstructionById
+  deleteInstructionById,
+  readRecipeByPartialName,
 } = require('../api');
 
 const allowedOrigins = ["http://localhost:5173",];
@@ -239,6 +242,75 @@ router.route('/:recipeId')
       return res.status(400).json(error);
     }
   } 
+);
+
+router.route('/autocomplete')
+.post(
+  readCache,
+  async (req,res) => {
+    try {
+
+      const { name, userId } = req.body;
+
+      let data = await readRecipeByPartialName(name.trim(),userId);
+
+      return res.status(200).json(data);
+    } catch (error) {
+      console.error(`[API] Error:`,error);
+      return res.status(400).json(error);
+    }
+  }
+
+);
+
+router.route('/mostRecent/:userId')
+.get(
+  readCache,
+  async (req,res) => {
+    try {
+
+      const userId = req.params.userId;
+
+      let data = await readRecipesNewestByUserId(userId);
+
+      cache.set(
+        req.originalUrl,
+        data,
+        10 * 60
+      );
+
+      return res.status(200).json(data);
+    } catch (error) {
+      console.error(`[API] Error:`,error);
+      throw error;
+    }
+  }
+
+);
+
+router.route('/mostAged/:userId')
+.get(
+  readCache,
+  async (req,res) => {
+    try {
+
+      const userId = req.params.userId;
+
+      let data = await readRecipesOldestByUserId(userId);
+
+      cache.set(
+        req.originalUrl,
+        data,
+        10 * 60
+      );
+
+      return res.status(200).json(data);
+    } catch (error) {
+      console.error(`[API] Error:`,error);
+      throw error;
+    }
+  }
+
 );
 
 router.route('/user/:userId')
